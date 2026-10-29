@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#14101F"><link rel="icon" type="image/jpeg" href="logo.jpg"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"><meta name="robots" content="noindex, nofollow"><title>Admin — BTS Collective</title></head>
+<body>
+<div class="top"><strong>BTS Collective · Admin</strong><a href="index.html">← Back to site</a></div>
+<main class="card">
+  <section id="loginView">
+    <h2>Admin login</h2>
+    <form id="loginForm">
+      <label for="email">Email</label><input id="email" type="email" required autocomplete="username">
+      <label for="pass">Password</label><input id="pass" type="password" required autocomplete="current-password">
+      <button class="btn" type="submit">Log in</button>
+    </form>
+  </section>
+  <section id="inboxView" hidden>
+    <h2>Bookings</h2>
+    <div class="bar"><span id="count"></span><button class="link-btn" id="out" type="button">Sign out</button></div>
+    <ul id="list"></ul>
+  </section>
+  <p class="msg" id="msg" role="alert"></p>
+</main>
+<script type="module">
+import { auth, db, configured, STATUSES, $, el } from "./firebase.js";
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+let unsub = null;
+const stop = () => { if (unsub) { unsub(); unsub = null; } };
+const view = on => { $("loginView").hidden = on; $("inboxView").hidden = !on; };
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("msg").textContent = "";
+  if (!configured) { $("msg").textContent = "Firebase isn't configured yet (see firebase.js)."; return; }
+  try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value); $("pass").value = ""; }
+  catch (err) { $("msg").textContent = "Wrong email or password."; }
+});
+$("out").addEventListener("click", () => signOut(auth));
+if (configured) onAuthStateChanged(auth, (u) => {
+  stop();
+  if (!u) { view(false); return; }
+  view(true);
+  unsub = onSnapshot(query(collection(db, "bookings"), orderBy("createdAt", "desc")), (snap) => {
+    $("msg").textContent = "";
+    $("count").textContent = snap.size + (snap.size === 1 ? " booking" : " bookings");
+    $("list").replaceChildren(...snap.docs.map(d => {
+      const m = d.data(), li = el("li");
+      const sel = el("select");
+      STATUSES.forEach(s => { const o = el("option", "", s); o.selected = s === m.status; sel.append(o); });
+      sel.addEventListener("change", () => updateDoc(doc(db, "bookings", d.id), { status: sel.value }));
+      const del = el("button", "link-btn", "Delete"); del.type = "button";
+      del.addEventListener("click", () => confirm("Delete this booking?") && deleteDoc(doc(db, "bookings", d.id)));
+      const r = el("div", "row"); r.append(sel, del);
+      li.append(el("div", "t", m.name || m.email), el("div", "sub", m.email + " · " + m.package + " · " + m.date), el("p", "", m.message), r);
+      return li;
+    }));
+  }, () => { $("msg").textContent = "This account isn't an admin."; stop(); signOut(auth); });
+});
+</script></body></html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#14101F"><link rel="icon" type="image/jpeg" href="logo.jpg"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"><title>Client Login — BTS Collective</title></head>
+<body>
+<div class="top"><strong>BTS Collective</strong><a href="index.html">← Back to site</a></div>
+<main class="card">
+  <div class="tabs"><button class="on" data-mode="login" type="button">Log in</button><button data-mode="register" type="button">Register</button></div>
+  <form id="authForm">
+    <div id="nameWrap" hidden><label for="name">Full name</label><input id="name" autocomplete="name" maxlength="80"></div>
+    <label for="email">Email</label><input id="email" type="email" required autocomplete="username">
+    <label for="pass">Password</label><input id="pass" type="password" required minlength="6" autocomplete="current-password">
+    <button class="btn" id="go" type="submit">Log in</button>
+  </form>
+  <p class="msg" id="msg" role="alert"></p>
+</main>
+<script type="module">
+import { auth, configured, $ } from "./firebase.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+let mode = "login", busy = false;
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  $("nameWrap").hidden = mode !== "register";
+  $("name").required = mode === "register";
+  $("go").textContent = mode === "register" ? "Create account" : "Log in";
+  $("msg").textContent = "";
+}));
+const errs = { "auth/invalid-credential": "Wrong email or password.", "auth/email-already-in-use": "That email is already registered.", "auth/weak-password": "Password must be at least 6 characters.", "auth/invalid-email": "Enter a valid email." };
+$("authForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!configured) { $("msg").textContent = "Firebase isn't configured yet (see firebase.js)."; return; }
+  busy = true; $("go").disabled = true; $("msg").textContent = "";
+  try {
+    const email = $("email").value.trim(), pass = $("pass").value;
+    if (mode === "register") {
+      const c = await createUserWithEmailAndPassword(auth, email, pass);
+      await updateProfile(c.user, { displayName: $("name").value.trim() });
+    } else await signInWithEmailAndPassword(auth, email, pass);
+    location.href = "portal.html";
+  } catch (err) { $("msg").textContent = errs[err.code] || "Something went wrong. Try again."; busy = false; }
+  finally { $("go").disabled = false; }
+});
+if (configured) onAuthStateChanged(auth, u => { if (u && !busy) location.href = "portal.html"; });
+</script></body></html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#14101F"><link rel="icon" type="image/jpeg" href="logo.jpg"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css"><title>My Bookings — BTS Collective</title></head>
+<body>
+<div class="top"><strong id="hello">BTS Collective</strong><span><a href="index.html">Site</a> · <button class="link-btn" id="out" type="button">Sign out</button></span></div>
+<section class="card">
+  <h2>Book a project</h2>
+  <form id="bookForm">
+    <label for="pkg">Package</label>
+    <select id="pkg"><option>Shoot &amp; Edit</option><option>Edit only</option><option>Vlog / content package</option></select>
+    <label for="date">Preferred date</label><input id="date" type="date" required>
+    <label for="note">Details</label><textarea id="note" rows="4" maxlength="2000" required placeholder="What are we shooting?"></textarea>
+    <button class="btn" id="send" type="submit">Send request</button>
+  </form>
+  <p class="msg" id="msg" role="status"></p>
+</section>
+<section class="card"><h2>My bookings</h2><ul id="list"></ul></section>
+<script type="module">
+import { auth, db, configured, $, el } from "./firebase.js";
+import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+if (!configured) location.href = "login.html";
+$("date").min = new Date().toISOString().slice(0, 10);
+$("out").addEventListener("click", () => signOut(auth));
+onAuthStateChanged(auth, (u) => {
+  if (!u) { location.href = "login.html"; return; }
+  $("hello").textContent = "Hi, " + (u.displayName || u.email);
+  $("bookForm").onsubmit = async (e) => {
+    e.preventDefault(); $("send").disabled = true;
+    try {
+      await addDoc(collection(db, "bookings"), { uid: u.uid, name: u.displayName || "", email: u.email, package: $("pkg").value, date: $("date").value, message: $("note").value.trim(), status: "Pending", createdAt: serverTimestamp() });
+      e.target.reset(); $("msg").className = "msg ok"; $("msg").textContent = "Request sent! Track its status below.";
+    } catch (err) { $("msg").className = "msg"; $("msg").textContent = "Couldn't send. Please try again."; }
+    $("send").disabled = false;
+  };
+  onSnapshot(query(collection(db, "bookings"), where("uid", "==", u.uid)), (snap) => {
+    const rows = snap.docs.map(d => d.data()).sort((a, b) => (b.createdAt?.toMillis?.() ?? Date.now()) - (a.createdAt?.toMillis?.() ?? Date.now()));
+    if (!rows.length) { $("list").replaceChildren(el("li", "empty", "No bookings yet.")); return; }
+    $("list").replaceChildren(...rows.map(m => {
+      const li = el("li");
+      li.append(el("div", "t", m.package), el("time", "", "Preferred date: " + m.date), el("p", "", m.message), el("span", "badge", m.status));
+      return li;
+    }));
+  });
+});
+</script></body></html>
