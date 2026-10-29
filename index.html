@@ -512,6 +512,8 @@
   .btn-light:disabled{opacity:0.6;cursor:wait;transform:none;}
   .form-status{min-height:1.3em;font-size:0.9rem;color:var(--white);}
 
+  .nav-links a.nav-login{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  [hidden]{display:none!important;}
 </style>
 </head>
 <body>
@@ -526,7 +528,8 @@
       <a href="#about">About</a>
       <a href="#services">Services</a>
       <a href="#contact">Contact</a>
-      <a class="nav-login" href="login.html">Log in</a>
+      <a class="nav-login" id="navLogin" href="login.html">Log in</a>
+      <a id="navOut" href="#" hidden>Sign out</a>
     </div>
     <button class="hamburger" id="hamburgerBtn" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobileMenu">
       <span></span><span></span><span></span>
@@ -536,7 +539,8 @@
     <a href="#about">About</a>
     <a href="#services">Services</a>
     <a href="#contact">Contact</a>
-    <a href="login.html">Log in</a>
+    <a id="mobLogin" href="login.html">Log in</a>
+    <a id="mobOut" href="#" hidden>Sign out</a>
   </div>
 </header>
 
@@ -626,7 +630,7 @@
       <div>
         <h2>Let's shoot something.</h2>
         <p class="sub">Tell us about your project — a vlog, a brand video, a shoot that needs an edit that doesn't feel stock. We'll get back to you.</p>
-        <a class="btn btn-light" href="login.html" style="margin-top:24px;display:inline-flex">Book a project</a>
+        <a class="btn btn-light" id="bookBtn" href="login.html" style="margin-top:24px;display:inline-flex">Book a project</a>
       </div>
       <div class="contact-details">
         <div class="contact-item">
@@ -721,5 +725,34 @@
 
 
 
+<script type="module">
+  import { auth, configured } from "./firebase.js";
+  import { home } from "./roles.js";
+  import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+
+  // If someone is signed in, show their name instead of "Log in".
+  if (configured) onAuthStateChanged(auth, async (u) => {
+    const g = id => document.getElementById(id);
+    if (!u) {
+      for (const id of ["navLogin", "mobLogin"]) { g(id).textContent = "Log in"; g(id).href = "login.html"; }
+      for (const id of ["navOut", "mobOut"]) g(id).hidden = true;
+      g("bookBtn").href = "login.html";
+      return;
+    }
+    const dest = await home();
+    const name = u.displayName || u.email.split("@")[0];
+    for (const id of ["navLogin", "mobLogin"]) {
+      const a = document.getElementById(id);
+      a.textContent = "Hi, " + name;
+      a.href = dest;
+    }
+    document.getElementById("bookBtn").href = dest;
+    for (const id of ["navOut", "mobOut"]) document.getElementById(id).hidden = false;
+  });
+
+  for (const id of ["navOut", "mobOut"]) {
+    document.getElementById(id).addEventListener("click", (e) => { e.preventDefault(); signOut(auth); });
+  }
+</script>
 </body>
 </html>
