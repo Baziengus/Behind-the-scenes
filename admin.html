@@ -12,6 +12,8 @@
   </section>
   <section id="inboxView" hidden>
     <h2>Bookings</h2>
+    <div class="stats" id="stats"></div>
+    <div class="row" style="margin-bottom:14px"><select id="filter"></select><input id="search" type="search" placeholder="Search name or email" style="flex:1;min-width:160px"></div>
     <div class="bar"><span id="count"></span><button class="link-btn" id="out" type="button">Sign out</button></div>
     <ul id="list"></ul>
   </section>
@@ -19,6 +21,7 @@
 </main>
 <script type="module">
 import { auth, db, configured, STATUSES, $, el } from "./firebase.js";
+import { notifyClient } from "./email.js";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, query, orderBy, onSnapshot, updateDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 let unsub = null;
@@ -31,24 +34,42 @@ $("loginForm").addEventListener("submit", async (e) => {
   catch (err) { $("msg").textContent = "Wrong email or password."; }
 });
 $("out").addEventListener("click", () => signOut(auth));
+let all = [];
+$("filter").append(new Option("All statuses", ""), ...STATUSES.map(s => new Option(s, s)));
+$("filter").addEventListener("change", () => draw());
+$("search").addEventListener("input", () => draw());
+
+function draw() {
+  const f = $("filter").value, q = $("search").value.trim().toLowerCase();
+  const rows = all.filter(m => (!f || m.status === f) && (!q || (m.name + " " + m.email).toLowerCase().includes(q)));
+  $("stats").replaceChildren(...[["Total", all.length], ...STATUSES.map(s => [s, all.filter(m => m.status === s).length])].map(([k, v]) => {
+    const c = el("div", "stat"); c.append(el("b", "", v), el("span", "", k)); return c;
+  }));
+  $("count").textContent = "Showing " + rows.length + " of " + all.length;
+  if (!rows.length) { $("list").replaceChildren(el("li", "empty", "No matching bookings.")); return; }
+  $("list").replaceChildren(...rows.map(m => {
+    const li = el("li"), sel = el("select");
+    STATUSES.forEach(s => { const o = el("option", "", s); o.selected = s === m.status; sel.append(o); });
+    sel.addEventListener("change", async () => {
+      await updateDoc(doc(db, "bookings", m.id), { status: sel.value });
+      notifyClient(m, sel.value);
+    });
+    const del = el("button", "link-btn", "Delete"); del.type = "button";
+    del.addEventListener("click", () => confirm("Delete this booking?") && deleteDoc(doc(db, "bookings", m.id)));
+    const r = el("div", "row"); r.append(sel, del);
+    li.append(el("div", "t", m.name || m.email), el("div", "sub", m.email + " · " + m.package + " · " + m.date), el("p", "", m.message), r);
+    return li;
+  }));
+}
+
 if (configured) onAuthStateChanged(auth, (u) => {
   stop();
   if (!u) { view(false); return; }
   view(true);
   unsub = onSnapshot(query(collection(db, "bookings"), orderBy("createdAt", "desc")), (snap) => {
+    all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     $("msg").textContent = "";
-    $("count").textContent = snap.size + (snap.size === 1 ? " booking" : " bookings");
-    $("list").replaceChildren(...snap.docs.map(d => {
-      const m = d.data(), li = el("li");
-      const sel = el("select");
-      STATUSES.forEach(s => { const o = el("option", "", s); o.selected = s === m.status; sel.append(o); });
-      sel.addEventListener("change", () => updateDoc(doc(db, "bookings", d.id), { status: sel.value }));
-      const del = el("button", "link-btn", "Delete"); del.type = "button";
-      del.addEventListener("click", () => confirm("Delete this booking?") && deleteDoc(doc(db, "bookings", d.id)));
-      const r = el("div", "row"); r.append(sel, del);
-      li.append(el("div", "t", m.name || m.email), el("div", "sub", m.email + " · " + m.package + " · " + m.date), el("p", "", m.message), r);
-      return li;
-    }));
+    draw();
   }, () => { $("msg").textContent = "This account isn't an admin."; stop(); signOut(auth); });
 });
 </script></body></html>

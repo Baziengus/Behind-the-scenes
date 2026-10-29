@@ -29,3 +29,11 @@ li p{line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;color:#dad3ec;
 .badge{display:inline-block;font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:999px;background:rgba(113,61,222,.35);border:1px solid var(--purple)}
 .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row select{width:auto}
 .empty{color:var(--muted);text-align:center}
+.steps{display:flex;gap:4px;margin-top:8px}
+.steps span{flex:1;text-align:center;font-size:.68rem;padding:6px 2px;border-radius:8px;background:var(--ink2);color:var(--muted);border:1px solid rgba(255,255,255,.1)}
+.steps span.done{background:rgba(113,61,222,.35);color:#fff;border-color:var(--purple)}
+.steps span.now{background:linear-gradient(90deg,var(--purple),var(--magenta));color:#fff;border-color:transparent;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-bottom:14px}
+.stat{background:var(--ink);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-family:'Space Grotesk',sans-serif;font-size:1.4rem}
+.stat span{font-size:.72rem;color:var(--muted)}

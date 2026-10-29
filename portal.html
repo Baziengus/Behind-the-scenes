@@ -14,13 +14,19 @@
 </section>
 <section class="card"><h2>My bookings</h2><ul id="list"></ul></section>
 <script type="module">
-import { auth, db, configured, $, el } from "./firebase.js";
+import { auth, db, configured, STATUSES, $, el } from "./firebase.js";
+import { notifyAdmin } from "./email.js";
 import { home } from "./roles.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 if (!configured) location.href = "login.html";
 $("date").min = new Date().toISOString().slice(0, 10);
 $("out").addEventListener("click", () => signOut(auth));
+function tracker(status) {
+  const at = STATUSES.indexOf(status), box = el("div", "steps");
+  STATUSES.forEach((s, i) => box.append(el("span", i < at ? "done" : i === at ? "now" : "", s)));
+  return box;
+}
 onAuthStateChanged(auth, (u) => {
   if (!u) { location.href = "login.html"; return; }
   home().then(h => { if (h === "admin.html") location.href = h; });
@@ -28,7 +34,9 @@ onAuthStateChanged(auth, (u) => {
   $("bookForm").onsubmit = async (e) => {
     e.preventDefault(); $("send").disabled = true;
     try {
-      await addDoc(collection(db, "bookings"), { uid: u.uid, name: u.displayName || "", email: u.email, package: $("pkg").value, date: $("date").value, message: $("note").value.trim(), status: "Pending", createdAt: serverTimestamp() });
+      const b = { name: u.displayName || "", email: u.email, package: $("pkg").value, date: $("date").value, message: $("note").value.trim() };
+      await addDoc(collection(db, "bookings"), { uid: u.uid, ...b, status: "Pending", createdAt: serverTimestamp() });
+      notifyAdmin(b);
       e.target.reset(); $("msg").className = "msg ok"; $("msg").textContent = "Request sent! Track its status below.";
     } catch (err) { $("msg").className = "msg"; $("msg").textContent = "Couldn't send. Please try again."; }
     $("send").disabled = false;
@@ -38,7 +46,7 @@ onAuthStateChanged(auth, (u) => {
     if (!rows.length) { $("list").replaceChildren(el("li", "empty", "No bookings yet.")); return; }
     $("list").replaceChildren(...rows.map(m => {
       const li = el("li");
-      li.append(el("div", "t", m.package), el("time", "", "Preferred date: " + m.date), el("p", "", m.message), el("span", "badge", m.status));
+      li.append(el("div", "t", m.package), el("time", "", "Preferred date: " + m.date), el("p", "", m.message), tracker(m.status));
       return li;
     }));
   });
