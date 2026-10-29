@@ -15,6 +15,7 @@
 <section class="card"><h2>My bookings</h2><ul id="list"></ul></section>
 <script type="module">
 import { auth, db, configured, $, el } from "./firebase.js";
+import { home } from "./roles.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { collection, addDoc, serverTimestamp, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 if (!configured) location.href = "login.html";
@@ -22,6 +23,7 @@ $("date").min = new Date().toISOString().slice(0, 10);
 $("out").addEventListener("click", () => signOut(auth));
 onAuthStateChanged(auth, (u) => {
   if (!u) { location.href = "login.html"; return; }
+  home().then(h => { if (h === "admin.html") location.href = h; });
   $("hello").textContent = "Hi, " + (u.displayName || u.email);
   $("bookForm").onsubmit = async (e) => {
     e.preventDefault(); $("send").disabled = true;

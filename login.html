@@ -13,6 +13,7 @@
 </main>
 <script type="module">
 import { auth, configured, $ } from "./firebase.js";
+import { home } from "./roles.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 let mode = "login", busy = false;
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => {
@@ -34,9 +35,9 @@ $("authForm").addEventListener("submit", async (e) => {
       const c = await createUserWithEmailAndPassword(auth, email, pass);
       await updateProfile(c.user, { displayName: $("name").value.trim() });
     } else await signInWithEmailAndPassword(auth, email, pass);
-    location.href = "portal.html";
+    location.href = await home();
   } catch (err) { $("msg").textContent = errs[err.code] || "Something went wrong. Try again."; busy = false; }
   finally { $("go").disabled = false; }
 });
-if (configured) onAuthStateChanged(auth, u => { if (u && !busy) location.href = "portal.html"; });
+if (configured) onAuthStateChanged(auth, async u => { if (u && !busy) location.href = await home(); });
 </script></body></html>
