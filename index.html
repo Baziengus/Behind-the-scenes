@@ -548,9 +548,10 @@
   /* ---------- SHOWREEL ---------- */
   .showreel{padding:100px 0 110px;}
   .showreel h2{margin-bottom:32px;}
+  .reel-slot{position:relative;aspect-ratio:16/9;}
   .video-frame{
-    position:relative;
-    aspect-ratio:16/9;
+    position:absolute;
+    inset:0;
     border-radius:22px;
     overflow:hidden;
     background:#000;
@@ -558,6 +559,20 @@
     box-shadow:0 30px 80px rgba(113,61,222,0.25);
   }
   .video-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+  /* Minimized floating player */
+  .video-frame.mini{
+    position:fixed;inset:auto 16px 16px auto;
+    width:min(320px,62vw);height:auto;aspect-ratio:16/9;
+    z-index:90;border-radius:14px;
+    box-shadow:0 14px 40px rgba(0,0,0,0.55),0 0 0 1px rgba(250,78,165,0.4);
+    animation:miniIn 0.3s ease;
+  }
+  @keyframes miniIn{from{opacity:0;transform:translateY(16px) scale(0.9);}to{opacity:1;transform:none;}}
+  .mini-close{
+    position:absolute;top:6px;right:6px;z-index:2;
+    width:28px;height:28px;border-radius:50%;border:none;
+    background:rgba(20,16,31,0.8);color:#fff;font-size:1.1rem;line-height:1;cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -622,10 +637,13 @@
   <div class="wrap">
     <span class="tag">Our work</span>
     <h2>See the finished cut.</h2>
-    <div class="video-frame">
+    <div class="reel-slot" id="reelSlot">
+    <div class="video-frame" id="reelFrame">
       <iframe id="reel" title="BTS Collective showreel" loading="lazy"
         allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
         referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+      <button class="mini-close" id="miniClose" type="button" aria-label="Close mini player" hidden>&times;</button>
+    </div>
     </div>
   </div>
 </section>
@@ -783,20 +801,26 @@
 
 <script>
 (() => {
-  const f = document.getElementById('reel');
+  const f = document.getElementById('reel'), frame = document.getElementById('reelFrame'),
+        slot = document.getElementById('reelSlot'), x = document.getElementById('miniClose');
   const id = 'PpBCwmLK1SA';
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const origin = location.origin.startsWith('http') ? '&origin=' + encodeURIComponent(location.origin) : '';
   const base = 'https://www.youtube-nocookie.com/embed/' + id + '?rel=0&modestbranding=1&playsinline=1&enablejsapi=1' + origin;
   const cmd = fn => f.contentWindow && f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: [] }), '*');
-  let loaded = false;
-  // Load the player when it first scrolls into view; autoplay muted + loop, and pause when off screen.
+  const setMini = on => { frame.classList.toggle('mini', on); x.hidden = !on; };
+  let loaded = false, dismissed = false;
+
+  // In view: full size, autoplay muted + loop. Scrolled away: shrink to a corner player that keeps playing.
   new IntersectionObserver(([e]) => {
-    if (e.isIntersecting) {
+    if (e.intersectionRatio >= 0.2) {
+      dismissed = false; setMini(false);
       if (!loaded) { loaded = true; f.src = base + (reduce ? '' : '&autoplay=1&mute=1&loop=1&playlist=' + id); }
       else if (!reduce) cmd('playVideo');
-    } else if (loaded) cmd('pauseVideo');
-  }, { threshold: 0.35 }).observe(f);
+    } else if (loaded && !dismissed && !reduce) setMini(true);
+  }, { threshold: [0, 0.2] }).observe(slot);
+
+  x.addEventListener('click', () => { dismissed = true; setMini(false); cmd('pauseVideo'); });
 })();
 </script>
 
